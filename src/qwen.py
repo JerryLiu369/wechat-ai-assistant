@@ -52,11 +52,11 @@ class QwenExecutor:
             )
 
             try:
-                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120.0)
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300.0)
             except asyncio.TimeoutError:
                 proc.kill()
                 await proc.wait()
-                return False, "命令执行超时（>120 秒）"
+                return False, "命令执行超时（>5 分钟）"
 
             output = (stdout + stderr).decode("utf-8", errors="replace").strip()
 
