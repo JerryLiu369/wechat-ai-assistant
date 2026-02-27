@@ -1,0 +1,20 @@
+# HTTP 框架
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# 配置管理
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# HTTP 客户端
+httpx>=0.25.0
+
+# XML 解析
+xmltodict>=0.13.0
+
+# 加密
+cryptography>=41.0.0
+
+# 日志
+loguru>=0.7.0
