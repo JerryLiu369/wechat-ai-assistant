@@ -22,6 +22,62 @@ def get_help_text() -> str:
 """
 
 
+def split_message_by_bytes(content: str, max_bytes: int = 1500) -> list:
+    """
+    按字节数分割消息（企业微信限制 2048 字节）
+    
+    Args:
+        content: 消息内容
+        max_bytes: 每片最大字节数（默认 1500，留余量）
+        
+    Returns:
+        分割后的消息列表
+    """
+    encoded = content.encode('utf-8')
+    
+    if len(encoded) <= max_bytes:
+        return [content]
+    
+    chunks = []
+    start = 0
+    
+    while start < len(encoded):
+        # 截取分片
+        chunk_bytes = encoded[start:start + max_bytes]
+        
+        # 尝试解码，如果截断在中文中间会失败
+        try:
+            chunk = chunk_bytes.decode('utf-8')
+            chunks.append(chunk)
+            start += max_bytes
+        except UnicodeDecodeError:
+            # 截断位置不对，减少字节数直到能正确解码
+            for i in range(len(chunk_bytes) - 1, 0, -1):
+                try:
+                    chunk = chunk_bytes[:i].decode('utf-8')
+                    chunks.append(chunk)
+                    start += i
+                    break
+                except UnicodeDecodeError:
+                    continue
+    
+    return chunks
+
+
+async def send_split_message(wechat_client, user_id: str, content: str):
+    """发送分片消息"""
+    chunks = split_message_by_bytes(content)
+    
+    if len(chunks) == 1:
+        await wechat_client.send_text_message(user_id, f"✅ {content}")
+    else:
+        for i, chunk in enumerate(chunks):
+            await wechat_client.send_text_message(
+                user_id,
+                f"[{i+1}/{len(chunks)}] {chunk}" if i > 0 else f"✅ {chunk}"
+            )
+
+
 def create_app(wechat_client, wechat_handler, qwen) -> FastAPI:
     """创建 FastAPI 应用"""
     app = FastAPI(title="WeChat AI Assistant")
@@ -95,12 +151,7 @@ def create_app(wechat_client, wechat_handler, qwen) -> FastAPI:
             success, output = await qwen.execute(user_id, command)
 
             if success:
-                if len(output) <= 4000:
-                    await wechat_client.send_text_message(user_id, f"✅ {output}")
-                else:
-                    chunks = [output[i:i+4000] for i in range(0, len(output), 4000)]
-                    for i, chunk in enumerate(chunks):
-                        await wechat_client.send_text_message(user_id, f"[{i+1}/{len(chunks)}] {chunk}")
+                await send_split_message(wechat_client, user_id, output)
             else:
                 await wechat_client.send_text_message(user_id, f"❌ {output}")
 
@@ -109,12 +160,7 @@ def create_app(wechat_client, wechat_handler, qwen) -> FastAPI:
             success, output = await qwen.execute(user_id, content)
 
             if success:
-                if len(output) <= 4000:
-                    await wechat_client.send_text_message(user_id, f"✅ {output}")
-                else:
-                    chunks = [output[i:i+4000] for i in range(0, len(output), 4000)]
-                    for i, chunk in enumerate(chunks):
-                        await wechat_client.send_text_message(user_id, f"[{i+1}/{len(chunks)}] {chunk}")
+                await send_split_message(wechat_client, user_id, output)
             else:
                 await wechat_client.send_text_message(user_id, f"❌ {output}")
 
