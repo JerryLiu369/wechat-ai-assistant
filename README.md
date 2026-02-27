@@ -59,22 +59,16 @@ Qwen Code 会在各自目录内自动保存会话历史，`--continue` 参数自
 ```
 wechat-ai-assistant/
 ├── src/
-│   ├── config/
-│   │   └── settings.py     # 配置管理
-│   ├── wechat/
-│   │   ├── crypto.py       # 消息加解密
-│   │   ├── client.py       # API 客户端
-│   │   └── handler.py      # 消息处理器
-│   ├── ai/
-│   │   └── qwen.py         # Qwen Code 执行器
-│   └── server/
-│       └── app.py          # FastAPI 应用
-├── main.py                 # 入口文件
-├── requirements.txt        # Python 依赖
-├── .env.example            # 配置模板
-├── .gitignore              # Git 忽略配置
-├── LICENSE                 # MIT 许可证
-└── README.md               # 本文件
+│   ├── main.py           # 主入口（配置 + 日志 + 启动）
+│   ├── wechat.py         # 企业微信（加解密 +API+ 消息处理）
+│   ├── qwen.py           # Qwen Code 执行器
+│   └── server.py         # FastAPI 应用
+├── main.py               # 入口（调用 src.main）
+├── requirements.txt
+├── .env.example
+├── .gitignore
+├── LICENSE
+└── README.md
 ```
 
 ## 企业微信配置说明

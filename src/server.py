@@ -2,10 +2,6 @@
 from fastapi import FastAPI, Query, Request, Response
 from loguru import logger
 
-from ..ai.qwen import QwenExecutor
-from ..wechat.client import WeChatClient
-from ..wechat.handler import WeChatMessageHandler
-
 
 def get_help_text() -> str:
     """获取帮助文本"""
@@ -26,11 +22,7 @@ def get_help_text() -> str:
 """
 
 
-def create_app(
-    wechat_client: WeChatClient,
-    wechat_handler: WeChatMessageHandler,
-    qwen: QwenExecutor,
-) -> FastAPI:
+def create_app(wechat_client, wechat_handler, qwen) -> FastAPI:
     """创建 FastAPI 应用"""
     app = FastAPI(title="WeChat AI Assistant")
 
@@ -113,7 +105,6 @@ def create_app(
                 await wechat_client.send_text_message(user_id, f"❌ {output}")
 
         elif content and not content.startswith("/"):
-            # 直接发送文本视为命令
             await wechat_client.send_text_message(user_id, f"⏳ 正在执行：{content}")
             success, output = await qwen.execute(user_id, content)
 

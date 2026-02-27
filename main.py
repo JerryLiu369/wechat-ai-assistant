@@ -1,23 +1,56 @@
 """
-WeChat AI Assistant - 入口文件
-
-基于 Qwen Code 的企业微信 AI 助手
+WeChat AI Assistant - 基于 Qwen Code 的企业微信 AI 助手
 """
 import asyncio
 import sys
+from functools import lru_cache
+from pathlib import Path
 
 import uvicorn
 from loguru import logger
-
-from src.config import settings
-from src.ai.qwen import QwenExecutor
-from src.wechat.client import WeChatClient
-from src.wechat.crypto import WeChatCrypto
-from src.wechat.handler import WeChatMessageHandler
-from src.server.app import create_app
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-# 配置日志
+# ============================================================================
+# 配置
+# ============================================================================
+
+class Settings(BaseSettings):
+    """应用配置"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    corp_id: str
+    agent_id: int
+    secret: str
+    receive_token: str
+    receive_encoding_aes_key: str
+    port: int = 3000
+
+    @property
+    def is_valid(self) -> bool:
+        required = [self.corp_id, self.agent_id, self.secret,
+                    self.receive_token, self.receive_encoding_aes_key]
+        return all(bool(f) for f in required)
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()
+
+
+# ============================================================================
+# 日志配置
+# ============================================================================
+
 logger.remove()
 logger.add(
     sys.stderr,
@@ -26,33 +59,31 @@ logger.add(
 )
 
 
+# ============================================================================
+# 主程序
+# ============================================================================
+
 async def main():
     """主函数"""
     logger.info("=" * 50)
     logger.info("WeChat AI Assistant 启动中...")
     logger.info("=" * 50)
 
-    # 验证配置
     if not settings.is_valid:
         logger.error("配置不完整，请检查 .env 文件")
         sys.exit(1)
 
     logger.info("配置验证通过 ✓")
 
+    # 导入模块
+    from src.wechat import WeChatClient, WeChatCrypto, WeChatMessageHandler
+    from src.qwen import QwenExecutor
+    from src.server import create_app
+
     # 初始化组件
     logger.info("初始化企业微信组件...")
-    wechat_client = WeChatClient(
-        corp_id=settings.corp_id,
-        agent_id=settings.agent_id,
-        secret=settings.secret,
-    )
-
-    wechat_crypto = WeChatCrypto(
-        token=settings.receive_token,
-        encoding_aes_key=settings.receive_encoding_aes_key,
-        corp_id=settings.corp_id,
-    )
-
+    wechat_client = WeChatClient(settings.corp_id, settings.agent_id, settings.secret)
+    wechat_crypto = WeChatCrypto(settings.receive_token, settings.receive_encoding_aes_key, settings.corp_id)
     wechat_handler = WeChatMessageHandler(wechat_crypto)
 
     logger.info("初始化 Qwen Executor...")
@@ -74,7 +105,6 @@ async def main():
     logger.info(f"启动 HTTP 服务，端口：{settings.port}")
     config = uvicorn.Config(app, host="0.0.0.0", port=settings.port, log_config=None)
     server = uvicorn.Server(config)
-
     await server.serve()
 
 

@@ -60,91 +60,59 @@
 
 ## 核心组件
 
-### 1. HTTP Server (`src/server/app.py`)
+### 1. src/main.py - 主入口
 
-**职责**: 接收企业微信回调，路由命令
+**职责**: 配置加载、日志设置、组件初始化、启动服务
 
-**核心逻辑**:
+**代码结构**:
 ```python
-@app.post("/wechat/callback")
-async def wechat_callback_post():
-    # 1. 解密消息
-    message = wechat_handler.parse_message(...)
-    
-    # 2. 识别命令
-    if content == "/help": ...
-    elif content == "/new": ...
-    elif content.startswith("/run "): ...
-    else: # 直接执行
-    
-    # 3. 调用 QwenExecutor
-    success, output = await qwen.execute(user_id, command)
-    
-    # 4. 回复用户
-    await wechat_client.send_text_message(user_id, output)
+# 配置
+class Settings(BaseSettings):
+    corp_id: str
+    agent_id: int
+    ...
+
+# 日志
+logger.remove()
+logger.add(...)
+
+# 主程序
+async def main():
+    # 验证配置
+    # 初始化 WeChatClient, WeChatCrypto, WeChatMessageHandler
+    # 初始化 QwenExecutor
+    # 创建 FastAPI 应用
+    # 启动 uvicorn
 ```
 
-### 2. QwenExecutor (`src/ai/qwen.py`)
+### 2. src/wechat.py - 企业微信模块（~200 行）
 
-**职责**: 执行 Qwen Code 命令，管理用户工作区
+**职责**: 加解密、API 调用、消息解析
+
+**三个类**:
+- `WeChatCrypto` - AES 加解密、签名验证
+- `WeChatClient` - Access Token 管理、发送消息
+- `WeChatMessageHandler` - 消息解密、XML 解析
+
+### 3. src/qwen.py - Qwen 执行器（~85 行）
+
+**职责**: 执行 Qwen Code 命令、管理工作区
 
 **核心方法**:
 ```python
 class QwenExecutor:
-    def __init__(self):
-        self.workspace_base = Path.home() / ".wechat-ai-assistant" / "workspaces"
-    
-    async def execute(self, user_id: str, command: str) -> tuple[bool, str]:
-        workspace = self._get_workspace(user_id)  # 获取用户工作区
-        # 执行：qwen --continue --yolo <command>
-        # 工作目录：workspace
+    async def execute(user_id, command) -> (bool, str)
+    async def reset_session(user_id)
 ```
 
-**会话管理**:
-- **一个用户 = 一个文件夹**
-- `qwen --continue` 自动加载该文件夹内的会话历史
-- `/new` 命令清空文件夹，开始新会话
+### 4. src/server.py - FastAPI 应用（~120 行）
 
-### 3. WeChat 模块
+**职责**: HTTP 路由、命令分发
 
-#### 3.1 WeChatClient (`src/wechat/client.py`)
-
-**职责**: 调用企业微信 API
-
-```python
-class WeChatClient:
-    async def get_access_token(self) -> str:
-        # 获取并缓存 token
-        
-    async def send_text_message(self, user_id: str, content: str) -> bool:
-        # 发送文本消息
-```
-
-#### 3.2 WeChatCrypto (`src/wechat/crypto.py`)
-
-**职责**: AES 加解密、签名验证
-
-```python
-class WeChatCrypto:
-    def decrypt(self, encrypted_text: str) -> Tuple[str, str]:
-        # AES-CBC 解密
-        
-    def verify_signature(self, ...) -> bool:
-        # SHA1 签名验证
-```
-
-#### 3.3 WeChatMessageHandler (`src/wechat/handler.py`)
-
-**职责**: 消息解析
-
-```python
-class WeChatMessageHandler:
-    def parse_message(...) -> Optional[WeChatMessage]:
-        # 1. 验证签名
-        # 2. 解密消息
-        # 3. 解析 XML
-        # 4. 返回 WeChatMessage dataclass
-```
+**路由**:
+- `GET /wechat/callback` - URL 验证
+- `POST /wechat/callback` - 消息处理
+- `GET /health` - 健康检查
 
 ## 数据流
 
@@ -231,15 +199,13 @@ class WeChatMessageHandler:
 
 ## 代码统计
 
-| 模块 | 文件 | 行数 | 职责 |
-|------|------|------|------|
-| config | settings.py | ~40 | 配置加载 |
-| wechat | crypto.py | ~130 | 加解密 |
-| wechat | client.py | ~100 | API 调用 |
-| wechat | handler.py | ~100 | 消息解析 |
-| ai | qwen.py | ~90 | Qwen 执行 |
-| server | app.py | ~150 | HTTP 路由 |
-| **总计** | **6 文件** | **~610 行** | |
+| 文件 | 行数 | 职责 |
+|------|------|------|
+| src/main.py | ~100 | 配置 + 日志 + 启动 |
+| src/wechat.py | ~200 | 加解密 +API+ 消息处理 |
+| src/qwen.py | ~85 | Qwen 执行 |
+| src/server.py | ~120 | HTTP 路由 |
+| **总计** | **~505 行** | **4 个文件** | |
 
 ## 扩展指南
 
