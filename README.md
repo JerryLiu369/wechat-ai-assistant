@@ -35,8 +35,8 @@ RECEIVE_ENCODING_AES_KEY=随机获取的 EncodingAESKey
 # 服务端口（可选，默认 3000）
 PORT=3000
 
-# AI 后端配置（可选，默认 iflow）
-AI_BACKEND=iflow
+# AI 后端配置（可选，默认 qwen）
+AI_BACKEND=qwen
 ```
 
 ### 3. 启动服务
@@ -74,6 +74,7 @@ wechat-ai-assistant/
 │   ├── ai/             # AI 后端
 │   │   ├── base.py     # 抽象基类
 │   │   ├── iflow.py    # iFlow 实现
+│   │   ├── qwen.py     # Qwen Code 实现
 │   │   └── manager.py  # 会话管理器
 │   └── server/         # HTTP 服务
 │       └── app.py      # FastAPI 应用
@@ -85,7 +86,9 @@ wechat-ai-assistant/
 
 ## 扩展 AI 后端
 
-项目设计支持多种 AI 后端，只需实现 `AIBackend` 抽象基类：
+项目已支持 iFlow 和 Qwen Code，通过 `AI_BACKEND` 环境变量切换。
+
+如需添加其他后端，实现 `AIBackend` 抽象基类即可：
 
 ```python
 from src.ai.base import AIBackend, AIResult

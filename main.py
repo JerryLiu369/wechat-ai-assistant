@@ -12,6 +12,7 @@ from loguru import logger
 from src.config import settings
 from src.ai.manager import AISessionManager
 from src.ai.iflow import IFlowBackend
+from src.ai.qwen import QwenBackend
 from src.wechat.client import WeChatClient
 from src.wechat.crypto import WeChatCrypto
 from src.wechat.handler import WeChatMessageHandler
@@ -62,15 +63,15 @@ async def main():
 
     # 注册 AI 后端
     if settings.ai_backend == "iflow":
-        # 创建工作区目录
         from pathlib import Path
         workspace_base = Path(settings.iflow_workspace) if settings.iflow_workspace else None
         ai_manager.register_backend(IFlowBackend(workspace_base=workspace_base))
         logger.info("AI 后端：iFlow ✓")
-        if workspace_base:
-            logger.info(f"工作区目录：{workspace_base}")
-        else:
-            logger.info(f"工作区目录：~/.wechat-ai-assistant/workspaces (默认)")
+    elif settings.ai_backend == "qwen":
+        from pathlib import Path
+        workspace_base = Path(settings.iflow_workspace) if settings.iflow_workspace else None
+        ai_manager.register_backend(QwenBackend(workspace_base=workspace_base))
+        logger.info("AI 后端：Qwen ✓")
     else:
         logger.warning(f"未知的 AI 后端：{settings.ai_backend}，默认使用 iflow")
         ai_manager.register_backend(IFlowBackend())
