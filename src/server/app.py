@@ -28,13 +28,13 @@ def parse_command(content: str) -> Tuple[str, str]:
 
 def get_help_text() -> str:
     """获取帮助文本"""
-    return """iFlow 企业微信助手
+    return """AI 企业微信助手
 
 支持连续对话，自动保持上下文
 
 可用命令：
-- 直接发送消息：执行 iFlow 命令（自动恢复上次会话）
-- /run <命令>：执行 iFlow 命令
+- 直接发送消息：执行 AI 命令（自动恢复上次会话）
+- /run <命令>：执行 AI 命令
 - /new：开始新会话（清除上下文）
 - /status：查看服务状态
 - /help：显示此帮助
@@ -52,13 +52,12 @@ def format_status_text(status: dict) -> str:
     """格式化状态文本"""
     if "error" in status:
         return f"错误：{status['error']}"
-    lines = ["iFlow 服务状态", ""]
+    lines = ["AI 服务状态", ""]
     if status.get("has_session"):
         session_id = status.get("session_id", "未知")
-        iflow_id = status.get("iflow_session_id", "未知")
         lines.append(f"当前会话：{session_id}")
-        if iflow_id:
-            lines.append(f"iFlow Session: {iflow_id}")
+        if status.get("session_file"):
+            lines.append(f"Session 文件：{status['session_file']}")
     else:
         lines.append("当前会话：无活跃会话")
     return "\n".join(lines)

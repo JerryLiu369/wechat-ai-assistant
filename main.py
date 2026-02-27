@@ -11,7 +11,6 @@ from loguru import logger
 
 from src.config import settings
 from src.ai.manager import AISessionManager
-from src.ai.iflow import IFlowBackend
 from src.ai.qwen import QwenBackend
 from src.wechat.client import WeChatClient
 from src.wechat.crypto import WeChatCrypto
@@ -62,19 +61,14 @@ async def main():
     ai_manager = AISessionManager(default_backend=settings.ai_backend)
 
     # 注册 AI 后端
-    if settings.ai_backend == "iflow":
+    if settings.ai_backend == "qwen":
         from pathlib import Path
-        workspace_base = Path(settings.iflow_workspace) if settings.iflow_workspace else None
-        ai_manager.register_backend(IFlowBackend(workspace_base=workspace_base))
-        logger.info("AI 后端：iFlow ✓")
-    elif settings.ai_backend == "qwen":
-        from pathlib import Path
-        workspace_base = Path(settings.iflow_workspace) if settings.iflow_workspace else None
+        workspace_base = Path(settings.workspace) if settings.workspace else None
         ai_manager.register_backend(QwenBackend(workspace_base=workspace_base))
         logger.info("AI 后端：Qwen ✓")
     else:
-        logger.warning(f"未知的 AI 后端：{settings.ai_backend}，默认使用 iflow")
-        ai_manager.register_backend(IFlowBackend())
+        logger.warning(f"未知的 AI 后端：{settings.ai_backend}，默认使用 qwen")
+        ai_manager.register_backend(QwenBackend())
 
     # 创建 FastAPI 应用
     app = create_app(wechat_client, wechat_handler, ai_manager)

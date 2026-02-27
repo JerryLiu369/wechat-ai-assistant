@@ -28,10 +28,10 @@ class Settings(BaseSettings):
     port: int = 3000
 
     # AI 后端配置
-    ai_backend: str = "iflow"
+    ai_backend: str = "qwen"
 
-    # iFlow 工作区目录
-    iflow_workspace: Optional[str] = None
+    # 工作区目录
+    workspace: Optional[str] = None
 
     @property
     def is_valid(self) -> bool:

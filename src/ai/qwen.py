@@ -16,7 +16,7 @@ class QwenBackend(AIBackend):
         super().__init__("qwen")
         
         if workspace_base is None:
-            workspace_base = Path.home() / ".wechat-ai-assistant" / "workspaces" / "qwen"
+            workspace_base = Path.home() / ".wechat-ai-assistant" / "workspaces"
         
         self.workspace_base = workspace_base
         self.workspace_base.mkdir(parents=True, exist_ok=True)

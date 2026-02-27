@@ -17,7 +17,7 @@ class AIBackend(ABC):
     """
     AI 后端抽象基类
 
-    所有 AI 后端（iFlow、Qwen Code 等）必须实现此接口
+    所有 AI 后端（如 Qwen Code）必须实现此接口
     """
 
     def __init__(self, name: str):

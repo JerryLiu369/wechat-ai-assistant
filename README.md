@@ -4,7 +4,7 @@
 
 ## 致谢
 
-本项目灵感来源于 [iflow-wechat-assistant](https://github.com/wx7in8/iflow-wechat-assistant) by @wx7in8，感谢原作者的开源贡献！
+本项目灵感来源于 [iflow-wechat-assistant](https://github.com/wx7in8/iflow-wechat-assistant)，感谢原作者的开源贡献！
 
 ## 快速开始
 
@@ -73,7 +73,6 @@ wechat-ai-assistant/
 │   │   └── handler.py  # 消息处理器
 │   ├── ai/             # AI 后端
 │   │   ├── base.py     # 抽象基类
-│   │   ├── iflow.py    # iFlow 实现
 │   │   ├── qwen.py     # Qwen Code 实现
 │   │   └── manager.py  # 会话管理器
 │   └── server/         # HTTP 服务
@@ -81,14 +80,14 @@ wechat-ai-assistant/
 ├── main.py             # 入口文件
 ├── requirements.txt    # Python 依赖
 ├── .env.example        # 配置模板
+├── .gitignore          # Git 忽略配置
+├── LICENSE             # 开源许可证
 └── README.md           # 本文件
 ```
 
 ## 扩展 AI 后端
 
-项目已支持 iFlow 和 Qwen Code，通过 `AI_BACKEND` 环境变量切换。
-
-如需添加其他后端，实现 `AIBackend` 抽象基类即可：
+项目基于 `AIBackend` 抽象基类设计，可轻松扩展其他 AI 后端。
 
 ```python
 from src.ai.base import AIBackend, AIResult
