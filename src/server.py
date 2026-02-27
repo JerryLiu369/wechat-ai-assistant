@@ -95,18 +95,18 @@ def create_app(wechat_client, wechat_handler, qwen) -> FastAPI:
             success, output = await qwen.execute(user_id, command)
 
             if success:
-                await wechat_client.send_safe_text_message(user_id, output, "✅ ")
+                await wechat_client.send_text_message(user_id, output, "✅ ")
             else:
-                await wechat_client.send_text_message(user_id, f"❌ {output}")
+                await wechat_client.send_text_message(user_id, output, "❌ ")
 
         elif content and not content.startswith("/"):
             await wechat_client.send_text_message(user_id, f"⏳ 正在执行：{content}")
             success, output = await qwen.execute(user_id, content)
 
             if success:
-                await wechat_client.send_safe_text_message(user_id, output, "✅ ")
+                await wechat_client.send_text_message(user_id, output, "✅ ")
             else:
-                await wechat_client.send_text_message(user_id, f"❌ {output}")
+                await wechat_client.send_text_message(user_id, output, "❌ ")
 
         else:
             await wechat_client.send_text_message(user_id, "无法识别的命令，发送 /help 查看帮助")

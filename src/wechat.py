@@ -90,8 +90,28 @@ class WeChatClient:
         else:
             raise RuntimeError(f"获取 token 失败：{data.get('errmsg')}")
 
-    async def send_text_message(self, user_id: str, content: str) -> bool:
-        """发送文本消息（单条，不超过 2048 字节）"""
+    async def send_text_message(self, user_id: str, content: str, prefix: str = "") -> int:
+        """
+        发送文本消息（自动分片，不超过 2048 字节）
+        
+        Args:
+            user_id: 接收者
+            content: 消息内容
+            prefix: 第一条消息的前缀（如 "✅ "），分片消息自动添加 [2/3] 前缀
+            
+        Returns:
+            发送的消息条数
+        """
+        chunks = self._split_message(content)
+        
+        for i, chunk in enumerate(chunks):
+            msg = f"{prefix}{chunk}" if i == 0 else f"[{i+1}/{len(chunks)}] {chunk}"
+            await self._send_single_message(user_id, msg)
+        
+        return len(chunks)
+
+    async def _send_single_message(self, user_id: str, content: str) -> bool:
+        """发送单条消息（内部方法）"""
         token = await self.get_access_token()
 
         try:
@@ -118,26 +138,6 @@ class WeChatClient:
         except Exception as e:
             logger.error(f"[WeChat] 发送消息异常：{e}")
             return False
-
-    async def send_safe_text_message(self, user_id: str, content: str, prefix: str = "") -> int:
-        """
-        发送文本消息（自动分片，不超过 2048 字节）
-        
-        Args:
-            user_id: 接收者
-            content: 消息内容
-            prefix: 每条消息的前缀（如 "✅ "）
-            
-        Returns:
-            发送的消息条数
-        """
-        chunks = self._split_message(content)
-        
-        for i, chunk in enumerate(chunks):
-            msg = f"{prefix}{chunk}" if i == 0 else f"[{i+1}/{len(chunks)}] {chunk}"
-            await self.send_text_message(user_id, msg)
-        
-        return len(chunks)
 
     def _split_message(self, content: str, max_bytes: int = 1500) -> list:
         """
