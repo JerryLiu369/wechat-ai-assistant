@@ -91,31 +91,18 @@ class WeChatClient:
             raise RuntimeError(f"获取 token 失败：{data.get('errmsg')}")
 
     async def send_text_message(self, user_id: str, content: str, prefix: str = "") -> int:
-        """
-        发送文本消息（自动分片，不超过 2048 字节）
-        
-        Args:
-            user_id: 接收者
-            content: 消息内容
-            prefix: 第一条消息的前缀（如 "✅ "），分片消息自动添加 [2/3] 前缀
-            
-        Returns:
-            发送的消息条数
-        """
+        """发送文本消息（自动分片）"""
         chunks = self._split_message(content)
-        
         for i, chunk in enumerate(chunks):
             msg = f"{prefix}{chunk}" if i == 0 else f"[{i+1}/{len(chunks)}] {chunk}"
             await self._send_single_message(user_id, msg)
-        
         return len(chunks)
 
     async def _send_single_message(self, user_id: str, content: str) -> bool:
-        """发送单条消息（内部方法）"""
+        """发送单条消息"""
         token = await self.get_access_token()
-
         try:
-            response = await self._client.post(
+            resp = await self._client.post(
                 "https://qyapi.weixin.qq.com/cgi-bin/message/send",
                 params={"access_token": token},
                 json={
@@ -126,55 +113,38 @@ class WeChatClient:
                     "safe": 0,
                 },
             )
-            response.raise_for_status()
-            data = response.json()
-
+            resp.raise_for_status()
+            data = resp.json()
             if data.get("errcode") == 0:
                 logger.info(f"[WeChat] 消息发送成功 -> {user_id}")
                 return True
-            else:
-                logger.error(f"[WeChat] 消息发送失败：{data.get('errmsg')}")
-                return False
+            logger.error(f"[WeChat] 消息发送失败：{data.get('errmsg')}")
+            return False
         except Exception as e:
             logger.error(f"[WeChat] 发送消息异常：{e}")
             return False
 
     def _split_message(self, content: str, max_bytes: int = 1500) -> list:
-        """
-        按字节数分割消息（企业微信限制 2048 字节）
-        
-        Args:
-            content: 消息内容
-            max_bytes: 每片最大字节数（默认 1500，留余量）
-            
-        Returns:
-            分割后的消息列表
-        """
+        """按字节数分割消息（企业微信限制 2048 字节）"""
         encoded = content.encode('utf-8')
-        
         if len(encoded) <= max_bytes:
             return [content]
-        
+
         chunks = []
         start = 0
-        
         while start < len(encoded):
             chunk_bytes = encoded[start:start + max_bytes]
-            
             try:
-                chunk = chunk_bytes.decode('utf-8')
-                chunks.append(chunk)
+                chunks.append(chunk_bytes.decode('utf-8'))
                 start += max_bytes
             except UnicodeDecodeError:
                 for i in range(len(chunk_bytes) - 1, 0, -1):
                     try:
-                        chunk = chunk_bytes[:i].decode('utf-8')
-                        chunks.append(chunk)
+                        chunks.append(chunk_bytes[:i].decode('utf-8'))
                         start += i
                         break
                     except UnicodeDecodeError:
                         continue
-        
         return chunks
 
 
