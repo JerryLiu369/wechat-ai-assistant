@@ -1,5 +1,4 @@
-"""AI 后端模块"""
-from .base import AIBackend, AIResult
-from .qwen import QwenBackend
+"""AI 模块 - 仅支持 Qwen Code"""
+from .qwen import QwenExecutor
 
-__all__ = ["AIBackend", "AIResult", "QwenBackend"]
+__all__ = ["QwenExecutor"]

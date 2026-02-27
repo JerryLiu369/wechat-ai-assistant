@@ -1,37 +1,47 @@
-"""Qwen Code AI 后端实现"""
+"""Qwen Code 执行器 - 简单直接的实现"""
 import asyncio
 import shutil
 from pathlib import Path
-from typing import Dict, Optional
 
 from loguru import logger
 
-from .base import AIBackend, AIResult
 
+class QwenExecutor:
+    """
+    Qwen Code 执行器
+    
+    会话管理：一个用户 = 一个工作区文件夹
+    - 用户消息自动保存到 ~/.wechat-ai-assistant/workspaces/{user_id}/
+    - qwen --continue 自动加载该目录的会话历史
+    """
 
-class QwenBackend(AIBackend):
-    """Qwen Code CLI 后端 - 通过工作区隔离实现多用户会话管理"""
-
-    def __init__(self, workspace_base: Optional[Path] = None):
-        super().__init__("qwen")
-        
-        if workspace_base is None:
-            workspace_base = Path.home() / ".wechat-ai-assistant" / "workspaces"
-        
-        self.workspace_base = workspace_base
+    def __init__(self):
+        self.workspace_base = Path.home() / ".wechat-ai-assistant" / "workspaces"
         self.workspace_base.mkdir(parents=True, exist_ok=True)
-        self._session_workspaces: Dict[str, Path] = {}
-        
         logger.info(f"[Qwen] 工作区目录：{self.workspace_base}")
 
-    async def execute(self, command: str, session_id: str) -> AIResult:
-        """执行 Qwen 命令"""
-        workspace = self._get_or_create_workspace(session_id)
+    def _get_workspace(self, user_id: str) -> Path:
+        """获取用户工作区"""
+        return self.workspace_base / user_id
+
+    async def execute(self, user_id: str, command: str) -> tuple[bool, str]:
+        """
+        执行 Qwen 命令
+        
+        Args:
+            user_id: 用户 ID（企业微信 UserID）
+            command: 命令内容
+            
+        Returns:
+            (success, output) 元组
+        """
+        workspace = self._get_workspace(user_id)
+        workspace.mkdir(parents=True, exist_ok=True)
         
         args = ["qwen", "--continue", "--yolo", command]
         
-        logger.info(f"[Qwen] 工作区：{workspace}")
-        logger.info(f"[Qwen] 执行命令：{' '.join(args)}")
+        logger.info(f"[Qwen] 用户 {user_id} -> 工作区：{workspace}")
+        logger.info(f"[Qwen] 执行：{' '.join(args)}")
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -46,71 +56,46 @@ class QwenBackend(AIBackend):
             except asyncio.TimeoutError:
                 proc.kill()
                 await proc.wait()
-                return AIResult(success=False, output="", error="命令执行超时（>120 秒）")
+                return False, "命令执行超时（>120 秒）"
 
-            output = (stdout + stderr).decode("utf-8", errors="replace")
-            cleaned_output = output.strip()
+            output = (stdout + stderr).decode("utf-8", errors="replace").strip()
 
             if proc.returncode == 0:
-                logger.info("[Qwen] 命令执行成功")
-                return AIResult(success=True, output=cleaned_output or "命令执行完成")
+                logger.info("[Qwen] 执行成功")
+                return True, output or "命令执行完成"
             else:
-                logger.warning(f"[Qwen] 命令执行失败，退出码：{proc.returncode}")
-                return AIResult(success=False, output=cleaned_output or f"命令执行失败，退出码：{proc.returncode}")
+                logger.warning(f"[Qwen] 执行失败，退出码：{proc.returncode}")
+                return False, output or f"命令执行失败，退出码：{proc.returncode}"
 
         except FileNotFoundError:
-            logger.error("[Qwen] 未找到 qwen 命令，请确保已安装")
-            return AIResult(success=False, output="", error="未找到 qwen 命令，请确保已安装 Qwen Code CLI")
+            logger.error("[Qwen] 未找到 qwen 命令")
+            return False, "未找到 qwen 命令，请确保已安装 Qwen Code CLI"
         except Exception as e:
             logger.error(f"[Qwen] 执行错误：{e}")
-            return AIResult(success=False, output="", error=f"执行错误：{e}")
+            return False, f"执行错误：{e}"
 
-    async def create_session(self, user_id: str) -> str:
-        """创建新会话"""
-        session_id = f"user:{user_id}"
-        workspace = self._get_workspace_path(session_id)
-        
+    async def reset_session(self, user_id: str) -> bool:
+        """重置用户会话（清空工作区）"""
+        workspace = self._get_workspace(user_id)
         if workspace.exists():
             shutil.rmtree(workspace)
-        
         workspace.mkdir(parents=True, exist_ok=True)
-        self._session_workspaces[session_id] = workspace
-        
-        logger.info(f"[Qwen] 为用户 {user_id} 创建新会话，工作区：{workspace}")
-        return session_id
+        logger.info(f"[Qwen] 用户 {user_id} 会话已重置")
+        return True
 
-    async def get_session_info(self, session_id: str) -> dict:
-        """获取会话信息"""
-        workspace = self._session_workspaces.get(session_id)
+    async def get_status(self, user_id: str) -> dict:
+        """获取用户会话状态"""
+        workspace = self._get_workspace(user_id)
         
-        if workspace is None:
-            return {"session_id": session_id, "has_session": False, "workspace": None}
+        if not workspace.exists():
+            return {"has_session": False}
         
-        session_files = list(workspace.glob("*.json")) if workspace.exists() else []
-        latest_session = max(session_files, key=lambda f: f.stat().st_mtime) if session_files else None
+        session_files = list(workspace.glob("*.json"))
+        latest = max(session_files, key=lambda f: f.stat().st_mtime) if session_files else None
         
         return {
-            "session_id": session_id,
             "has_session": True,
             "workspace": str(workspace),
-            "session_file": str(latest_session) if latest_session else None,
+            "session_file": str(latest) if latest else None,
             "session_count": len(session_files),
         }
-
-    def _get_workspace_path(self, session_id: str) -> Path:
-        """获取工作区路径"""
-        safe_name = session_id.replace(":", "_").replace("/", "_")
-        return self.workspace_base / safe_name
-
-    def _get_or_create_workspace(self, session_id: str) -> Path:
-        """获取或创建工作区"""
-        if session_id not in self._session_workspaces:
-            workspace = self._get_workspace_path(session_id)
-            workspace.mkdir(parents=True, exist_ok=True)
-            self._session_workspaces[session_id] = workspace
-        
-        return self._session_workspaces[session_id]
-
-    async def close(self):
-        """关闭后端资源"""
-        logger.info("[Qwen] 关闭后端")

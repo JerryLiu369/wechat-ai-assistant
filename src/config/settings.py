@@ -1,6 +1,5 @@
-"""应用配置管理"""
+"""应用配置"""
 from functools import lru_cache
-from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,12 +25,6 @@ class Settings(BaseSettings):
 
     # 服务配置
     port: int = 3000
-
-    # AI 后端配置
-    ai_backend: str = "qwen"
-
-    # 工作区目录
-    workspace: Optional[str] = None
 
     @property
     def is_valid(self) -> bool:
