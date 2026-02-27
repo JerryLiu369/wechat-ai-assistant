@@ -22,6 +22,36 @@ def get_help_text() -> str:
 """
 
 
+async def handle_ai_command(wechat_client, qwen, user_id: str, command: str):
+    """
+    处理 AI 命令（带超时处理和进度汇报）
+    
+    Args:
+        wechat_client: 微信客户端
+        qwen: Qwen 执行器
+        user_id: 用户 ID
+        command: 命令内容
+    """
+    await wechat_client.send_text_message(user_id, f"⏳ 正在执行：{command}")
+    success, output, status = await qwen.execute_with_progress(user_id, command, wechat_client)
+
+    if status == "timeout":
+        await wechat_client.send_text_message(user_id, "⚠️ 执行超时（>10 分钟），已终止任务")
+        await wechat_client.send_text_message(user_id, "📝 正在请求总结...")
+        
+        summary_command = "上次执行超时，任务被终止了。请快速总结一下目前执行到哪一步了，已完成哪些工作，还有什么没做的？要求简洁明了。"
+        summary_success, summary_output, _ = await qwen.execute(user_id, summary_command)
+        
+        if summary_success:
+            await wechat_client.send_text_message(user_id, summary_output, "📋 总结：")
+        else:
+            await wechat_client.send_text_message(user_id, "❌ 总结失败")
+    elif success:
+        await wechat_client.send_text_message(user_id, output, "✅ ")
+    else:
+        await wechat_client.send_text_message(user_id, output, "❌ ")
+
+
 def create_app(wechat_client, wechat_handler, qwen) -> FastAPI:
     """创建 FastAPI 应用"""
     app = FastAPI(title="WeChat AI Assistant")
@@ -91,47 +121,10 @@ def create_app(wechat_client, wechat_handler, qwen) -> FastAPI:
 
         elif content.startswith("/run "):
             command = content[5:].strip()
-            await wechat_client.send_text_message(user_id, f"⏳ 正在执行：{command}")
-            success, output, status = await qwen.execute_with_progress(user_id, command, wechat_client)
-
-            if status == "timeout":
-                # 超时处理：先通知用户，然后让 qwen 总结
-                await wechat_client.send_text_message(user_id, "⚠️ 执行超时（>10 分钟），已终止任务")
-                await wechat_client.send_text_message(user_id, "📝 正在请求总结...")
-                
-                summary_command = f"上次执行超时，任务被终止了。请快速总结一下目前执行到哪一步了，已完成哪些工作，还有什么没做的？要求简洁明了。"
-                summary_success, summary_output, _ = await qwen.execute(user_id, summary_command)
-                
-                if summary_success:
-                    await wechat_client.send_text_message(user_id, summary_output, "📋 总结：")
-                else:
-                    await wechat_client.send_text_message(user_id, "❌ 总结失败")
-                    
-            elif success:
-                await wechat_client.send_text_message(user_id, output, "✅ ")
-            else:
-                await wechat_client.send_text_message(user_id, output, "❌ ")
+            await handle_ai_command(wechat_client, qwen, user_id, command)
 
         elif content and not content.startswith("/"):
-            await wechat_client.send_text_message(user_id, f"⏳ 正在执行：{content}")
-            success, output, status = await qwen.execute_with_progress(user_id, content, wechat_client)
-
-            if status == "timeout":
-                await wechat_client.send_text_message(user_id, "⚠️ 执行超时（>10 分钟），已终止任务")
-                await wechat_client.send_text_message(user_id, "📝 正在请求总结...")
-                
-                summary_command = f"上次执行超时，任务被终止了。请快速总结一下目前执行到哪一步了，已完成哪些工作，还有什么没做的？要求简洁明了。"
-                summary_success, summary_output, _ = await qwen.execute(user_id, summary_command)
-                
-                if summary_success:
-                    await wechat_client.send_text_message(user_id, summary_output, "📋 总结：")
-                else:
-                    await wechat_client.send_text_message(user_id, "❌ 总结失败")
-                    
-            elif success:
-                await wechat_client.send_text_message(user_id, output, "✅ ")
-            else:
-                await wechat_client.send_text_message(user_id, output, "❌ ")
+            await handle_ai_command(wechat_client, qwen, user_id, content)
 
         else:
             await wechat_client.send_text_message(user_id, "无法识别的命令，发送 /help 查看帮助")
