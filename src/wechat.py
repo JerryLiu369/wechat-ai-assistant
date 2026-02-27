@@ -91,6 +91,7 @@ class WeChatClient:
             raise RuntimeError(f"获取 token 失败：{data.get('errmsg')}")
 
     async def send_text_message(self, user_id: str, content: str) -> bool:
+        """发送文本消息（单条，不超过 2048 字节）"""
         token = await self.get_access_token()
 
         try:
@@ -117,6 +118,64 @@ class WeChatClient:
         except Exception as e:
             logger.error(f"[WeChat] 发送消息异常：{e}")
             return False
+
+    async def send_safe_text_message(self, user_id: str, content: str, prefix: str = "") -> int:
+        """
+        发送文本消息（自动分片，不超过 2048 字节）
+        
+        Args:
+            user_id: 接收者
+            content: 消息内容
+            prefix: 每条消息的前缀（如 "✅ "）
+            
+        Returns:
+            发送的消息条数
+        """
+        chunks = self._split_message(content)
+        
+        for i, chunk in enumerate(chunks):
+            msg = f"{prefix}{chunk}" if i == 0 else f"[{i+1}/{len(chunks)}] {chunk}"
+            await self.send_text_message(user_id, msg)
+        
+        return len(chunks)
+
+    def _split_message(self, content: str, max_bytes: int = 1500) -> list:
+        """
+        按字节数分割消息（企业微信限制 2048 字节）
+        
+        Args:
+            content: 消息内容
+            max_bytes: 每片最大字节数（默认 1500，留余量）
+            
+        Returns:
+            分割后的消息列表
+        """
+        encoded = content.encode('utf-8')
+        
+        if len(encoded) <= max_bytes:
+            return [content]
+        
+        chunks = []
+        start = 0
+        
+        while start < len(encoded):
+            chunk_bytes = encoded[start:start + max_bytes]
+            
+            try:
+                chunk = chunk_bytes.decode('utf-8')
+                chunks.append(chunk)
+                start += max_bytes
+            except UnicodeDecodeError:
+                for i in range(len(chunk_bytes) - 1, 0, -1):
+                    try:
+                        chunk = chunk_bytes[:i].decode('utf-8')
+                        chunks.append(chunk)
+                        start += i
+                        break
+                    except UnicodeDecodeError:
+                        continue
+        
+        return chunks
 
 
 # ============================================================================
