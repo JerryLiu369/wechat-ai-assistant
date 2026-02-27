@@ -59,7 +59,7 @@ async def main():
 
     # 初始化 AI 管理器
     logger.info("初始化 AI 管理器...")
-    ai_manager = AISessionManager()
+    ai_manager = AISessionManager(default_backend=settings.ai_backend)
 
     # 注册 AI 后端
     if settings.ai_backend == "iflow":

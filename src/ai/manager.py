@@ -16,9 +16,10 @@ class AISessionManager:
     - 命令执行与回复
     """
 
-    def __init__(self):
+    def __init__(self, default_backend: str = "qwen"):
         self._backends: Dict[str, AIBackend] = {}
-        self._user_sessions: Dict[str, str] = {}  # (user_id, backend_name) -> session_id
+        self._user_sessions: Dict[str, str] = {}
+        self._default_backend = default_backend
 
     def register_backend(self, backend: AIBackend):
         """
@@ -46,19 +47,11 @@ class AISessionManager:
         self,
         user_id: str,
         command: str,
-        backend_name: str = "iflow",
+        backend_name: Optional[str] = None,
     ) -> AIResult:
-        """
-        执行用户命令
-
-        Args:
-            user_id: 用户 ID
-            command: 命令内容
-            backend_name: AI 后端名称
-
-        Returns:
-            执行结果
-        """
+        """执行用户命令"""
+        backend_name = backend_name or self._default_backend
+        
         backend = self.get_backend(backend_name)
         if not backend:
             return AIResult(
@@ -67,33 +60,21 @@ class AISessionManager:
                 error=f"AI 后端 '{backend_name}' 不存在",
             )
 
-        # 获取或创建用户会话
         session_key = f"{user_id}:{backend_name}"
         session_id = self._user_sessions.get(session_key)
 
         if not session_id:
-            # 创建新会话
             session_id = await backend.create_session(user_id)
             self._user_sessions[session_key] = session_id
             logger.info(f"[AI] 为用户 {user_id} 创建会话：{session_id}")
 
-        # 执行命令
         logger.info(f"[AI] 执行命令：{user_id} -> {command[:50]}...")
-        result = await backend.execute(command, session_id)
+        return await backend.execute(command, session_id)
 
-        return result
-
-    async def new_session(self, user_id: str, backend_name: str = "iflow") -> bool:
-        """
-        创建新会话（清除上下文）
-
-        Args:
-            user_id: 用户 ID
-            backend_name: AI 后端名称
-
-        Returns:
-            是否成功
-        """
+    async def new_session(self, user_id: str, backend_name: Optional[str] = None) -> bool:
+        """创建新会话（清除上下文）"""
+        backend_name = backend_name or self._default_backend
+        
         backend = self.get_backend(backend_name)
         if not backend:
             return False
@@ -105,17 +86,10 @@ class AISessionManager:
         logger.info(f"[AI] 为用户 {user_id} 重置会话：{new_session_id}")
         return True
 
-    async def get_status(self, user_id: str, backend_name: str = "iflow") -> dict:
-        """
-        获取用户会话状态
-
-        Args:
-            user_id: 用户 ID
-            backend_name: AI 后端名称
-
-        Returns:
-            状态信息
-        """
+    async def get_status(self, user_id: str, backend_name: Optional[str] = None) -> dict:
+        """获取用户会话状态"""
+        backend_name = backend_name or self._default_backend
+        
         backend = self.get_backend(backend_name)
         if not backend:
             return {"error": f"AI 后端 '{backend_name}' 不存在"}
@@ -131,11 +105,7 @@ class AISessionManager:
                 "backend": backend_name,
                 **info,
             }
-        else:
-            return {
-                "has_session": False,
-                "backend": backend_name,
-            }
+        return {"has_session": False, "backend": backend_name}
 
     async def close(self):
         """关闭所有 AI 后端"""
