@@ -102,7 +102,20 @@ def create_app(
         """企业微信消息回调（POST）"""
         logger.info("[HTTP] 收到消息回调")
         body = await request.body()
-        encrypt = body.decode("utf-8")
+        body_str = body.decode("utf-8")
+        
+        # 解析 XML 消息体，提取 encrypt 字段
+        try:
+            import xmltodict
+            data = xmltodict.parse(body_str)
+            encrypt = data.get("xml", {}).get("Encrypt", "")
+            if not encrypt:
+                logger.warning("[HTTP] 消息体中未找到 Encrypt 字段")
+                return Response(content="success", media_type="text/plain")
+        except Exception as e:
+            logger.error(f"[HTTP] XML 解析失败：{e}")
+            return Response(content="success", media_type="text/plain")
+        
         message = wechat_handler.parse_message(msg_signature, timestamp, nonce, encrypt)
 
         if not message:
