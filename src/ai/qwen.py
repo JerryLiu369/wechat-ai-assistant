@@ -28,7 +28,7 @@ class QwenBackend(AIBackend):
         """执行 Qwen 命令"""
         workspace = self._get_or_create_workspace(session_id)
         
-        args = ["qwen", "--continue", command]
+        args = ["qwen", "--continue", "--yolo", command]
         
         logger.info(f"[Qwen] 工作区：{workspace}")
         logger.info(f"[Qwen] 执行命令：{' '.join(args)}")
