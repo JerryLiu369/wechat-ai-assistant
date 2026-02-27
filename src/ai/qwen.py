@@ -82,20 +82,3 @@ class QwenExecutor:
         workspace.mkdir(parents=True, exist_ok=True)
         logger.info(f"[Qwen] 用户 {user_id} 会话已重置")
         return True
-
-    async def get_status(self, user_id: str) -> dict:
-        """获取用户会话状态"""
-        workspace = self._get_workspace(user_id)
-        
-        if not workspace.exists():
-            return {"has_session": False}
-        
-        session_files = list(workspace.glob("*.json"))
-        latest = max(session_files, key=lambda f: f.stat().st_mtime) if session_files else None
-        
-        return {
-            "has_session": True,
-            "workspace": str(workspace),
-            "session_file": str(latest) if latest else None,
-            "session_count": len(session_files),
-        }

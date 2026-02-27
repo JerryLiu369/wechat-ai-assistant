@@ -17,7 +17,6 @@ def get_help_text() -> str:
 - 直接发送消息：执行 AI 命令（自动恢复上次会话）
 - /run <命令>：执行 AI 命令
 - /new：开始新会话（清除上下文）
-- /status：查看服务状态
 - /help：显示此帮助
 
 示例：
@@ -25,19 +24,6 @@ def get_help_text() -> str:
 再帮我添加异常处理
 继续完善这个脚本
 """
-
-
-def format_status_text(status: dict) -> str:
-    """格式化状态文本"""
-    if not status.get("has_session"):
-        return "AI 服务状态\\n\\n当前会话：无活跃会话"
-    
-    lines = ["AI 服务状态", ""]
-    lines.append(f"工作区：{status.get('workspace', '未知')}")
-    if status.get("session_file"):
-        lines.append(f"Session 文件：{status['session_file']}")
-    lines.append(f"会话数：{status.get('session_count', 0)}")
-    return "\\n".join(lines)
 
 
 def create_app(
@@ -78,7 +64,7 @@ def create_app(
         """企业微信消息回调（POST）"""
         logger.info("[HTTP] 收到消息回调")
         body = await request.body()
-        
+
         try:
             import xmltodict
             data = xmltodict.parse(body.decode("utf-8"))
@@ -111,15 +97,11 @@ def create_app(
             await qwen.reset_session(user_id)
             await wechat_client.send_text_message(user_id, "✅ 已开始新会话，下次对话将清除之前的上下文")
 
-        elif content == "/status":
-            status = await qwen.get_status(user_id)
-            await wechat_client.send_text_message(user_id, format_status_text(status))
-
         elif content.startswith("/run "):
             command = content[5:].strip()
             await wechat_client.send_text_message(user_id, f"⏳ 正在执行：{command}")
             success, output = await qwen.execute(user_id, command)
-            
+
             if success:
                 if len(output) <= 4000:
                     await wechat_client.send_text_message(user_id, f"✅ {output}")
@@ -134,7 +116,7 @@ def create_app(
             # 直接发送文本视为命令
             await wechat_client.send_text_message(user_id, f"⏳ 正在执行：{content}")
             success, output = await qwen.execute(user_id, content)
-            
+
             if success:
                 if len(output) <= 4000:
                     await wechat_client.send_text_message(user_id, f"✅ {output}")
