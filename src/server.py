@@ -92,18 +92,43 @@ def create_app(wechat_client, wechat_handler, qwen) -> FastAPI:
         elif content.startswith("/run "):
             command = content[5:].strip()
             await wechat_client.send_text_message(user_id, f"⏳ 正在执行：{command}")
-            success, output = await qwen.execute(user_id, command)
+            success, output, status = await qwen.execute_with_progress(user_id, command, wechat_client)
 
-            if success:
+            if status == "timeout":
+                # 超时处理：先通知用户，然后让 qwen 总结
+                await wechat_client.send_text_message(user_id, "⚠️ 执行超时（>10 分钟），已终止任务")
+                await wechat_client.send_text_message(user_id, "📝 正在请求总结...")
+                
+                summary_command = f"上次执行超时，任务被终止了。请快速总结一下目前执行到哪一步了，已完成哪些工作，还有什么没做的？要求简洁明了。"
+                summary_success, summary_output, _ = await qwen.execute(user_id, summary_command)
+                
+                if summary_success:
+                    await wechat_client.send_text_message(user_id, summary_output, "📋 总结：")
+                else:
+                    await wechat_client.send_text_message(user_id, "❌ 总结失败")
+                    
+            elif success:
                 await wechat_client.send_text_message(user_id, output, "✅ ")
             else:
                 await wechat_client.send_text_message(user_id, output, "❌ ")
 
         elif content and not content.startswith("/"):
             await wechat_client.send_text_message(user_id, f"⏳ 正在执行：{content}")
-            success, output = await qwen.execute(user_id, content)
+            success, output, status = await qwen.execute_with_progress(user_id, content, wechat_client)
 
-            if success:
+            if status == "timeout":
+                await wechat_client.send_text_message(user_id, "⚠️ 执行超时（>10 分钟），已终止任务")
+                await wechat_client.send_text_message(user_id, "📝 正在请求总结...")
+                
+                summary_command = f"上次执行超时，任务被终止了。请快速总结一下目前执行到哪一步了，已完成哪些工作，还有什么没做的？要求简洁明了。"
+                summary_success, summary_output, _ = await qwen.execute(user_id, summary_command)
+                
+                if summary_success:
+                    await wechat_client.send_text_message(user_id, summary_output, "📋 总结：")
+                else:
+                    await wechat_client.send_text_message(user_id, "❌ 总结失败")
+                    
+            elif success:
                 await wechat_client.send_text_message(user_id, output, "✅ ")
             else:
                 await wechat_client.send_text_message(user_id, output, "❌ ")
